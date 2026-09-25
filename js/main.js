@@ -38,7 +38,10 @@ wall.receiveShadow = true;
 scene.add(wall);
 
 // Лампа (точечный источник) и её визуализация.
-const lamp = new THREE.PointLight(0xfff2dd, 60000, 0, 2);
+// Сцена в миллиметрах, а three.js рассчитывает освещение в метрах:
+// с decay=2 и большой интенсивностью картинка пересвечивается.
+// Поэтому decay=0 (без затухания) и умеренная интенсивность.
+const lamp = new THREE.PointLight(0xfff2dd, 2.2, 0, 0);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(2048, 2048);
 lamp.shadow.camera.near = 5;
@@ -52,12 +55,12 @@ const bulb = new THREE.Mesh(
 );
 scene.add(bulb);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 
 // Группа модели светильника.
 const modelGroup = new THREE.Group();
 scene.add(modelGroup);
-const modelMaterial = new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 0.6 });
+const modelMaterial = new THREE.MeshStandardMaterial({ color: 0x707880, roughness: 0.6 });
 let currentGeometry = null;
 
 // ---------- UI ----------

@@ -63,8 +63,11 @@ export function buildTextShapes(font, text, size, letterSpacing = 0) {
 }
 
 // Разбивает путь opentype.js на замкнутые контуры и превращает
-// каждый в THREE.Shape. testPts — только точки на кривой (без опорных
-// точек Безье), они используются для проверки вложенности контуров.
+// каждый в THREE.Shape. ВАЖНО: opentype.js возвращает путь в экранных
+// координатах (ось Y направлена ВНИЗ), поэтому Y инвертируется —
+// иначе текст получится перевёрнутым и ниже базовой линии.
+// testPts — только точки на кривой (без опорных точек Безье), они
+// используются для проверки вложенности контуров.
 function splitPathToContours(path) {
   const contours = [];
   let shape = null;
@@ -74,24 +77,24 @@ function splitPathToContours(path) {
     if (shape) contours.push({ shape, testPts });
     shape = new THREE.Shape();
     testPts = [];
-    shape.moveTo(x, y);
-    testPts.push([x, y]);
+    shape.moveTo(x, -y);
+    testPts.push([x, -y]);
   };
 
   for (const cmd of path.commands) {
     switch (cmd.type) {
       case 'M': startNew(cmd.x, cmd.y); break;
       case 'L':
-        shape.lineTo(cmd.x, cmd.y);
-        testPts.push([cmd.x, cmd.y]);
+        shape.lineTo(cmd.x, -cmd.y);
+        testPts.push([cmd.x, -cmd.y]);
         break;
       case 'Q':
-        shape.quadraticCurveTo(cmd.x1, cmd.y1, cmd.x, cmd.y);
-        testPts.push([cmd.x, cmd.y]);
+        shape.quadraticCurveTo(cmd.x1, -cmd.y1, cmd.x, -cmd.y);
+        testPts.push([cmd.x, -cmd.y]);
         break;
       case 'C':
-        shape.bezierCurveTo(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x, cmd.y);
-        testPts.push([cmd.x, cmd.y]);
+        shape.bezierCurveTo(cmd.x1, -cmd.y1, cmd.x2, -cmd.y2, cmd.x, -cmd.y);
+        testPts.push([cmd.x, -cmd.y]);
         break;
       case 'Z': shape.closePath(); break;
     }
