@@ -16,7 +16,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x11151b);
 
 const camera = new THREE.PerspectiveCamera(45, 1, 1, 5000);
-camera.position.set(160, 110, 430);
+camera.position.set(180, 160, 460);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.shadowMap.enabled = true;
@@ -25,7 +25,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 wrap.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 70, 0);
+controls.target.set(0, 130, 0);
 controls.enableDamping = true;
 
 // Стена, на которую падает тень.
@@ -84,8 +84,9 @@ const els = {
   bar: document.getElementById('bar-input'),
   bottomBar: document.getElementById('bottom-bar-check'),
   frame: document.getElementById('frame-check'),
-  wallDist: document.getElementById('wall-dist-input'),
-  lampDist: document.getElementById('lamp-dist-input'),
+  sconce: document.getElementById('sconce-dist-input'),
+  shadowScale: document.getElementById('shadow-scale-input'),
+  shadowHeight: document.getElementById('shadow-height-input'),
   exportBtn: document.getElementById('export-btn'),
 };
 
@@ -110,8 +111,9 @@ function readState() {
     barThickness: Math.min(20, Math.max(1, num(els.bar, 4))),
     bottomBar: els.bottomBar.checked,
     frame: els.frame.checked,
-    wallDist: Math.min(400, Math.max(20, num(els.wallDist, 40))),
-    lampDist: Math.min(400, Math.max(20, num(els.lampDist, 80))),
+    sconceDist: Math.min(100, Math.max(20, num(els.sconce, 60))),
+    shadowScale: Math.min(5, Math.max(1.1, num(els.shadowScale, 2))),
+    shadowHeight: Math.min(600, Math.max(50, num(els.shadowHeight, 200))),
   };
 }
 
@@ -174,32 +176,38 @@ function replaceModel(geometry) {
   updatePlacement();
 }
 
-// Размещение сцены: светильник (бра) висит на стене НИЖЕ модели и
-// светит вверх. Модель параллельна стене, поэтому тень на стене —
-// это равномерно увеличенная копия надписи, БЕЗ искажений
-// (проекция точечного источника между параллельными плоскостями —
-// гомотетия). Лампа дальше от стены, чем модель: лучи от неё через
-// буквы уходят вверх и назад, на стену над светильником.
+// Размещение сцены. Геометрия (все плоскости параллельны стене):
+//   L — расстояние лампа↔стена, d — модель↔стена (d < L).
+//   Тень — гомотетия с центром в лампе: масштаб S = L / (L − d),
+//   поэтому тень РОВНАЯ, без искажений, только увеличенная в S раз.
+//   Низ тени попадает на H мм выше лампы, если низ модели
+//   разместить на H / S выше лампы.
 function updatePlacement() {
   const s = readState();
-  modelGroup.position.set(0, 0, s.wallDist);
+  const L = s.sconceDist;   // лампа (верх бра) ↔ стена
+  const H = s.shadowHeight; // низ тени над лампой
 
-  const zLamp = s.wallDist + s.lampDist;
-  const modelBottom = currentGeometry?.boundingBox?.min.y ?? -20;
-  const lampY = modelBottom - 25; // лампа на 25 мм ниже нижней кромки модели
+  // Модель ↔ стена: d = L·(S−1)/S. Не даём модели вплотную к стене.
+  let d = (L * (s.shadowScale - 1)) / s.shadowScale;
+  d = Math.max(d, 8);
+  const S = L / (L - d); // фактический масштаб тени
 
-  lamp.position.set(0, lampY, zLamp);
+  const lampY = 0; // якорим лампу на высоте 0, всё остальное — относительно неё
+  lamp.position.set(0, lampY, L);
   bulb.position.copy(lamp.position);
 
   // Корпус бра: от стены до лампы, верхняя кромка чуть ниже лампы.
-  const sconceDepth = Math.max(20, zLamp - 6);
+  const sconceDepth = Math.max(20, L - 6);
   sconce.scale.z = sconceDepth;
   sconce.position.set(0, lampY - 20, sconceDepth / 2);
 
-  // Масштаб тени на стене (коэффициент гомотетии).
-  const scale = zLamp / s.lampDist;
+  // Низ модели — на H / S выше лампы, сама модель — в плоскости z = d.
+  const modelBottom = currentGeometry?.boundingBox?.min.y ?? -20;
+  modelGroup.position.set(0, lampY + H / S - modelBottom, d);
+
   const info = document.getElementById('shadow-info');
-  info.textContent = `Тень на стене: без искажений, масштаб ×${scale.toFixed(2)}`;
+  info.textContent =
+    `Тень: без искажений, ×${S.toFixed(2)}; низ тени на ${Math.round(lampY + H)} мм выше лампы`;
 }
 
 // ---------- Экспорт STL ----------
@@ -228,8 +236,9 @@ for (const el of [els.text, els.size, els.depth, els.spacing, els.bar]) {
 els.font.addEventListener('change', scheduleRebuild);
 els.bottomBar.addEventListener('change', scheduleRebuild);
 els.frame.addEventListener('change', scheduleRebuild);
-// Расстояния влияют только на размещение в сцене, модель не пересоздают.
-for (const el of [els.wallDist, els.lampDist]) {
+// Расстояния и масштаб влияют только на размещение в сцене,
+// модель не пересоздают.
+for (const el of [els.sconce, els.shadowScale, els.shadowHeight]) {
   el.addEventListener('input', updatePlacement);
 }
 

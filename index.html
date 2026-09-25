@@ -62,14 +62,18 @@
 
     <div class="row">
       <label class="field">
-        <span>Модель ↔ стена, мм</span>
-        <input id="wall-dist-input" type="number" value="40" min="20" max="400" step="5">
+        <span>Светильник ↔ стена, мм</span>
+        <input id="sconce-dist-input" type="number" value="60" min="20" max="100" step="5">
       </label>
       <label class="field">
-        <span>Лампа ↔ модель, мм</span>
-        <input id="lamp-dist-input" type="number" value="80" min="20" max="400" step="5">
+        <span>Масштаб тени ×</span>
+        <input id="shadow-scale-input" type="number" value="2" min="1.1" max="5" step="0.1">
       </label>
     </div>
+    <label class="field">
+      <span>Низ тени над светильником, мм</span>
+      <input id="shadow-height-input" type="number" value="200" min="50" max="600" step="10">
+    </label>
     <div id="shadow-info" class="info"></div>
 
     <button id="export-btn" class="primary">Скачать STL</button>
@@ -77,10 +81,9 @@
 
     <div class="hint">
       Вращение — ЛКМ, масштаб — колесо, панорама — ПКМ.<br>
-      Светильник (бра) висит на стене под моделью и светит вверх.
-      Модель параллельна стене, поэтому тень — ровная надпись
-      без искажений, только увеличенная. Модель печатается плашмя;
-      1 единица сцены = 1 мм.
+      Светильник (бра) на стене (не дальше 10 см) светит вверх, модель
+      над ним параллельна стене — тень ровная, без искажений,
+      только увеличенная. Модель печатается плашмя; 1 единица = 1 мм.
     </div>
   </aside>
 
