@@ -25,7 +25,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 wrap.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 130, 0);
+controls.target.set(0, 150, 40);
 controls.enableDamping = true;
 
 // Стена, на которую падает тень.
@@ -44,9 +44,10 @@ scene.add(wall);
 const lamp = new THREE.PointLight(0xfff2dd, 2.2, 0, 0);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(2048, 2048);
-lamp.shadow.camera.near = 5;
-lamp.shadow.camera.far = 1000;
-lamp.shadow.bias = -0.0005;
+lamp.shadow.camera.near = 10;
+lamp.shadow.camera.far = 400;
+lamp.shadow.bias = -0.0002;
+lamp.shadow.normalBias = 0.3;
 scene.add(lamp);
 
 const bulb = new THREE.Mesh(
@@ -85,7 +86,7 @@ const els = {
   bottomBar: document.getElementById('bottom-bar-check'),
   frame: document.getElementById('frame-check'),
   sconce: document.getElementById('sconce-dist-input'),
-  shadowScale: document.getElementById('shadow-scale-input'),
+  modelDist: document.getElementById('model-dist-input'),
   shadowHeight: document.getElementById('shadow-height-input'),
   exportBtn: document.getElementById('export-btn'),
 };
@@ -106,13 +107,13 @@ function readState() {
     text: els.text.value,
     fontDef: FONTS.find((f) => f.id === els.font.value) || FONTS[0],
     size: Math.min(200, Math.max(10, num(els.size, 40))),
-    depth: Math.min(30, Math.max(1, num(els.depth, 5))),
+    depth: Math.min(30, Math.max(1, num(els.depth, 3))),
     spacing: Math.min(30, Math.max(-5, num(els.spacing, 2))),
     barThickness: Math.min(20, Math.max(1, num(els.bar, 4))),
     bottomBar: els.bottomBar.checked,
     frame: els.frame.checked,
-    sconceDist: Math.min(100, Math.max(20, num(els.sconce, 60))),
-    shadowScale: Math.min(5, Math.max(1.1, num(els.shadowScale, 2))),
+    sconceDist: Math.min(100, Math.max(20, num(els.sconce, 100))),
+    modelDist: Math.min(95, Math.max(10, num(els.modelDist, 50))),
     shadowHeight: Math.min(600, Math.max(50, num(els.shadowHeight, 200))),
   };
 }
@@ -142,6 +143,10 @@ async function rebuild() {
     const { shapes, missing } = buildTextShapes(font, s.text, s.size, s.spacing);
     const geometry = buildModelGeometry(shapes, {
       depth: s.depth,
+      wallDist: s.modelDist,
+      lampDist: s.sconceDist,
+      wallTextHeight: s.shadowHeight,
+      wallTextSize: s.size,
       barThickness: s.barThickness,
       bottomBar: s.bottomBar,
       frame: s.frame,
@@ -176,38 +181,31 @@ function replaceModel(geometry) {
   updatePlacement();
 }
 
-// Размещение сцены. Геометрия (все плоскости параллельны стене):
-//   L — расстояние лампа↔стена, d — модель↔стена (d < L).
-//   Тень — гомотетия с центром в лампе: масштаб S = L / (L − d),
-//   поэтому тень РОВНАЯ, без искажений, только увеличенная в S раз.
-//   Низ тени попадает на H мм выше лампы, если низ модели
-//   разместить на H / S выше лампы.
+// Размещение сцены. Геометрия модели строится уже в координатах сцены
+// (стена z=0, лампа на оси (0, 0, L)), поэтому модель стоит в нуле.
+// Бра: корпус от стены до лампы, лампа на его верхнем торце, светит вверх.
+const BULB_DIAMETER = 20; // мм — оценка размера реальной колбы для полутени
 function updatePlacement() {
   const s = readState();
-  const L = s.sconceDist;   // лампа (верх бра) ↔ стена
-  const H = s.shadowHeight; // низ тени над лампой
+  const L = s.sconceDist;
+  const d = currentGeometry?.userData?.wallDist ?? s.modelDist;
 
-  // Модель ↔ стена: d = L·(S−1)/S. Не даём модели вплотную к стене.
-  let d = (L * (s.shadowScale - 1)) / s.shadowScale;
-  d = Math.max(d, 8);
-  const S = L / (L - d); // фактический масштаб тени
-
-  const lampY = 0; // якорим лампу на высоте 0, всё остальное — относительно неё
-  lamp.position.set(0, lampY, L);
+  lamp.position.set(0, 0, L);
   bulb.position.copy(lamp.position);
 
   // Корпус бра: от стены до лампы, верхняя кромка чуть ниже лампы.
-  const sconceDepth = Math.max(20, L - 6);
-  sconce.scale.z = sconceDepth;
-  sconce.position.set(0, lampY - 20, sconceDepth / 2);
+  sconce.scale.z = L;
+  sconce.position.set(0, -19, L / 2);
 
-  // Низ модели — на H / S выше лампы, сама модель — в плоскости z = d.
-  const modelBottom = currentGeometry?.boundingBox?.min.y ?? -20;
-  modelGroup.position.set(0, lampY + H / S - modelBottom, d);
-
+  // Полутень на стене от реальной (не точечной) лампы:
+  // край тени размывается на r·wz/(L−wz) с каждой стороны.
+  const r = BULB_DIAMETER / 2;
+  const penumbra = (r * (d + s.depth)) / Math.max(L - d - s.depth, 1);
   const info = document.getElementById('shadow-info');
   info.textContent =
-    `Тень: без искажений, ×${S.toFixed(2)}; низ тени на ${Math.round(lampY + H)} мм выше лампы`;
+    `Тень точная, без искажений (модель-конус вдоль лучей). ` +
+    `Полутень от лампы Ø${BULB_DIAMETER} мм ≈ ${penumbra.toFixed(1)} мм` +
+    (penumbra < 10 ? '' : ' — ставьте модель ближе к стене');
 }
 
 // ---------- Экспорт STL ----------
@@ -215,8 +213,14 @@ function updatePlacement() {
 els.exportBtn.addEventListener('click', () => {
   if (!currentGeometry) return;
   const exporter = new STLExporter();
-  // Временный меш без трансформаций — STL в исходных мм, по центру.
+  // Ориентация для печати: задняя (большая) грань модели — на стол.
+  // Геометрия построена в координатах сцены (z — вдоль лучей), поэтому
+  // поворачиваем вокруг X и опускаем так, чтобы задняя грань легла в z=0.
+  const d = currentGeometry.userData.wallDist ?? 0;
   const tmp = new THREE.Mesh(currentGeometry);
+  tmp.rotation.x = -Math.PI / 2;   // (x, y, z) → (x, z, −y)
+  tmp.position.y = -d;             // задняя грань (z=d) — на платформе
+  tmp.updateMatrixWorld(true);
   const data = exporter.parse(tmp, { binary: true });
   const blob = new Blob([data], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
@@ -236,10 +240,9 @@ for (const el of [els.text, els.size, els.depth, els.spacing, els.bar]) {
 els.font.addEventListener('change', scheduleRebuild);
 els.bottomBar.addEventListener('change', scheduleRebuild);
 els.frame.addEventListener('change', scheduleRebuild);
-// Расстояния и масштаб влияют только на размещение в сцене,
-// модель не пересоздают.
-for (const el of [els.sconce, els.shadowScale, els.shadowHeight]) {
-  el.addEventListener('input', updatePlacement);
+// Расстояния входят в анаморфное сжатие геометрии — модель пересоздаётся.
+for (const el of [els.sconce, els.modelDist, els.shadowHeight]) {
+  el.addEventListener('input', scheduleRebuild);
 }
 
 function onResize() {
