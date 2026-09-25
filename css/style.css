@@ -116,6 +116,12 @@ button.primary:disabled {
   line-height: 1.4;
 }
 
+.info {
+  font-size: 12px;
+  color: #7fd1a8;
+  line-height: 1.4;
+}
+
 .hint {
   margin-top: auto;
   font-size: 11px;

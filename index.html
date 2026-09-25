@@ -63,20 +63,24 @@
     <div class="row">
       <label class="field">
         <span>Модель ↔ стена, мм</span>
-        <input id="wall-dist-input" type="number" value="100" min="20" max="400" step="5">
+        <input id="wall-dist-input" type="number" value="40" min="20" max="400" step="5">
       </label>
       <label class="field">
         <span>Лампа ↔ модель, мм</span>
-        <input id="lamp-dist-input" type="number" value="130" min="20" max="400" step="5">
+        <input id="lamp-dist-input" type="number" value="80" min="20" max="400" step="5">
       </label>
     </div>
+    <div id="shadow-info" class="info"></div>
 
     <button id="export-btn" class="primary">Скачать STL</button>
     <div id="status" class="status"></div>
 
     <div class="hint">
       Вращение — ЛКМ, масштаб — колесо, панорама — ПКМ.<br>
-      Модель печатается плашмя; 1 единица сцены = 1 мм.
+      Светильник (бра) висит на стене под моделью и светит вверх.
+      Модель параллельна стене, поэтому тень — ровная надпись
+      без искажений, только увеличенная. Модель печатается плашмя;
+      1 единица сцены = 1 мм.
     </div>
   </aside>
 

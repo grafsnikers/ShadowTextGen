@@ -16,7 +16,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x11151b);
 
 const camera = new THREE.PerspectiveCamera(45, 1, 1, 5000);
-camera.position.set(150, 80, 430);
+camera.position.set(160, 110, 430);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.shadowMap.enabled = true;
@@ -25,7 +25,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 wrap.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 0, 70);
+controls.target.set(0, 70, 0);
 controls.enableDamping = true;
 
 // Стена, на которую падает тень.
@@ -54,6 +54,16 @@ const bulb = new THREE.Mesh(
   new THREE.MeshBasicMaterial({ color: 0xffe9b8 })
 );
 scene.add(bulb);
+
+// Корпус светильника (бра): крепится к стене под моделью, лампа —
+// на его верхнем торце, светит вверх. Отбрасывает тень, поэтому
+// стена под светильником остаётся тёмной, а над ним — светлой.
+const sconce = new THREE.Mesh(
+  new THREE.BoxGeometry(64, 26, 1),
+  new THREE.MeshStandardMaterial({ color: 0x22262c, roughness: 0.5 })
+);
+sconce.castShadow = true;
+scene.add(sconce);
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 
@@ -100,8 +110,8 @@ function readState() {
     barThickness: Math.min(20, Math.max(1, num(els.bar, 4))),
     bottomBar: els.bottomBar.checked,
     frame: els.frame.checked,
-    wallDist: Math.min(400, Math.max(20, num(els.wallDist, 100))),
-    lampDist: Math.min(400, Math.max(20, num(els.lampDist, 130))),
+    wallDist: Math.min(400, Math.max(20, num(els.wallDist, 40))),
+    lampDist: Math.min(400, Math.max(20, num(els.lampDist, 80))),
   };
 }
 
@@ -160,13 +170,36 @@ function replaceModel(geometry) {
     modelGroup.add(mesh);
   }
   els.exportBtn.disabled = !geometry;
+  // Положение лампы зависит от нижней кромки модели.
+  updatePlacement();
 }
 
+// Размещение сцены: светильник (бра) висит на стене НИЖЕ модели и
+// светит вверх. Модель параллельна стене, поэтому тень на стене —
+// это равномерно увеличенная копия надписи, БЕЗ искажений
+// (проекция точечного источника между параллельными плоскостями —
+// гомотетия). Лампа дальше от стены, чем модель: лучи от неё через
+// буквы уходят вверх и назад, на стену над светильником.
 function updatePlacement() {
   const s = readState();
   modelGroup.position.set(0, 0, s.wallDist);
-  lamp.position.set(0, 0, s.wallDist + s.lampDist);
+
+  const zLamp = s.wallDist + s.lampDist;
+  const modelBottom = currentGeometry?.boundingBox?.min.y ?? -20;
+  const lampY = modelBottom - 25; // лампа на 25 мм ниже нижней кромки модели
+
+  lamp.position.set(0, lampY, zLamp);
   bulb.position.copy(lamp.position);
+
+  // Корпус бра: от стены до лампы, верхняя кромка чуть ниже лампы.
+  const sconceDepth = Math.max(20, zLamp - 6);
+  sconce.scale.z = sconceDepth;
+  sconce.position.set(0, lampY - 20, sconceDepth / 2);
+
+  // Масштаб тени на стене (коэффициент гомотетии).
+  const scale = zLamp / s.lampDist;
+  const info = document.getElementById('shadow-info');
+  info.textContent = `Тень на стене: без искажений, масштаб ×${scale.toFixed(2)}`;
 }
 
 // ---------- Экспорт STL ----------

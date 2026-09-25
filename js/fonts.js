@@ -103,27 +103,36 @@ function splitPathToContours(path) {
   return contours;
 }
 
-// Определяет вложенность контуров: контуры нечётной глубины — «дырки»
-// ближайшего охватывающего контура (внутренность «О», «А», «ё» и т.п.).
+// Классификация контуров по направлению обхода: у внешних контуров и
+// «дырок» оно противоположно (правило ненулевого заполнения TrueType).
+// Эталонное направление берём у самого большого контура — он точно
+// внешний. Определять вложенность через центроиды нельзя: у «Р»
+// центроид внешнего контура попадает внутрь собственной «дырки»,
+// и буква целиком ошибочно классифицируется как дырка.
 function nestContours(contours) {
   const info = contours
-    .map((c) => ({ ...c, area: Math.abs(polygonArea(c.testPts)) }))
-    .filter((c) => c.area > 1e-6)
+    .map((c) => ({ ...c, area: polygonArea(c.testPts) }))
+    .filter((c) => Math.abs(c.area) > 1e-6)
     .map((c) => ({ ...c, bbox: bboxOf(c.testPts) }));
 
-  const shapes = [];
-  for (const c of info) {
-    const containers = info.filter((o) => o !== c && contains(o, c));
-    if (containers.length % 2 === 0) {
-      // Чётная глубина — самостоятельная фигура (тело буквы).
-      shapes.push(c.shape);
-    } else {
-      // Нечётная глубина — дырка самого маленького охватывающего контура.
-      const parent = containers.reduce((a, b) => (a.area < b.area ? a : b));
-      parent.shape.holes.push(c.shape);
+  if (info.length === 0) return [];
+
+  const dominantCcw = info.reduce((a, b) => (Math.abs(a.area) >= Math.abs(b.area) ? a : b)).area > 0;
+
+  const outers = info.filter((c) => (c.area > 0) === dominantCcw);
+  const holes = info.filter((c) => (c.area > 0) !== dominantCcw);
+
+  for (const h of holes) {
+    // Дырка целиком лежит внутри своего внешнего контура, поэтому её
+    // центроид гарантированно находится внутри него.
+    const p = centroid(h.testPts);
+    const candidates = outers.filter((o) => contains(o, p));
+    if (candidates.length > 0) {
+      const parent = candidates.reduce((a, b) => (Math.abs(a.area) < Math.abs(b.area) ? a : b));
+      parent.shape.holes.push(h.shape);
     }
   }
-  return shapes;
+  return outers.map((c) => c.shape);
 }
 
 function polygonArea(pts) {
@@ -145,10 +154,9 @@ function bboxOf(pts) {
   return { minX, minY, maxX, maxY };
 }
 
-// Находится ли контур c внутри контура o (по центроиду c).
-function contains(o, c) {
+// Находится ли точка p внутри контура o.
+function contains(o, p) {
   const bb = o.bbox;
-  const p = centroid(c.testPts);
   if (p[0] < bb.minX || p[0] > bb.maxX || p[1] < bb.minY || p[1] > bb.maxY) {
     return false;
   }
