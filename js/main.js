@@ -28,12 +28,13 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 150, 40);
 controls.enableDamping = true;
 
-// Стена, на которую падает тень.
+// Стена, на которую падает тень. Большая — чтобы помещались крупные
+// надписи; центр смещён вверх (тень проецируется выше светильника).
 const wall = new THREE.Mesh(
-  new THREE.PlaneGeometry(900, 600),
+  new THREE.PlaneGeometry(2400, 1600),
   new THREE.MeshStandardMaterial({ color: 0xe8e6e2, roughness: 0.95 })
 );
-wall.position.z = 0;
+wall.position.set(0, 600, 0);
 wall.receiveShadow = true;
 scene.add(wall);
 
@@ -106,7 +107,7 @@ function readState() {
   return {
     text: els.text.value,
     fontDef: FONTS.find((f) => f.id === els.font.value) || FONTS[0],
-    size: Math.min(200, Math.max(10, num(els.size, 40))),
+    size: Math.min(400, Math.max(10, num(els.size, 60))),
     depth: Math.min(30, Math.max(1, num(els.depth, 3))),
     spacing: Math.min(30, Math.max(-5, num(els.spacing, 2))),
     barThickness: Math.min(20, Math.max(1, num(els.bar, 4))),
@@ -114,7 +115,7 @@ function readState() {
     frame: els.frame.checked,
     sconceDist: Math.min(100, Math.max(20, num(els.sconce, 100))),
     modelDist: Math.min(95, Math.max(10, num(els.modelDist, 50))),
-    shadowHeight: Math.min(600, Math.max(50, num(els.shadowHeight, 200))),
+    shadowHeight: Math.min(1200, Math.max(50, num(els.shadowHeight, 200))),
   };
 }
 
