@@ -1,0 +1,10 @@
+{
+  "name": "shadow-text-lamp",
+  "version": "0.1.0",
+  "description": "Browser-based 3D generator: turns text into a printable lamp model that casts the text as a shadow. No backend.",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,22 @@
+# Зависимости
+node_modules/
+
+# Сборка
+dist/
+build/
+*.min.js
+
+# Логи
+*.log
+logs/
+
+# Файлы ОС
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Файлы редакторов
+.vscode/
+.idea/
+*.swp
+*.swo
